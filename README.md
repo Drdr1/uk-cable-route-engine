@@ -7,6 +7,12 @@ Automated route optimisation for grid-connection cables. It pulls live UK constr
 
 **Live demo** (rebuilt weekly from live data): https://drdr1.github.io/uk-cable-route-engine/
 
+**Latest live run:**
+
+![Latest live run](https://raw.githubusercontent.com/Drdr1/uk-cable-route-engine/gh-pages/overview.png)
+
+Downloads: [routes.dxf](https://raw.githubusercontent.com/Drdr1/uk-cable-route-engine/gh-pages/routes.dxf) · [rag-report.xlsx](https://raw.githubusercontent.com/Drdr1/uk-cable-route-engine/gh-pages/rag-report.xlsx) · [rag-report.pdf](https://raw.githubusercontent.com/Drdr1/uk-cable-route-engine/gh-pages/rag-report.pdf) · [DXF rendering](https://raw.githubusercontent.com/Drdr1/uk-cable-route-engine/gh-pages/dxf-preview.png)
+
 The demo is an illustrative 132 kV underground cable between two hypothetical points near Tonbridge, Kent. The area has dense ancient woodland, SSSIs, the River Medway floodplain, main-line railways and the A21/A26.
 
 ```
