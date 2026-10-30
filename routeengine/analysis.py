@@ -135,9 +135,26 @@ def find_crossings(project: Project, route: LineString, layers: dict[str, gpd.Ge
                 found.append(Crossing("", rule.layer, rule.label, cls, str(feat.get("label", "") or ""),
                                       round(ch, 1), angle, rag, reason, round(pt.x, 2), round(pt.y, 2)))
     found.sort(key=lambda c: c.chainage)
+    found = merge_parallel(found, project.merge_crossings_m)
     for i, c in enumerate(found, start=1):
         c.ref = f"X{i:02d}"
     return found
+
+
+def merge_parallel(crossings: list[Crossing], within_m: float) -> list[Crossing]:
+    """One crossing for a dual carriageway or twin-track railway: same layer and name/class within `within_m`."""
+    merged: list[Crossing] = []
+    for c in crossings:
+        prev = merged[-1] if merged else None
+        same = prev and prev.layer == c.layer and (prev.name or prev.cls) == (c.name or c.cls)
+        if same and c.chainage - prev.chainage <= within_m:
+            width = c.chainage - prev.chainage
+            prev.reason = f"{prev.reason}; parallel features over {width:.0f} m (e.g. dual carriageway)"
+            if RAG_ORDER[c.rag] > RAG_ORDER[prev.rag]:
+                prev.rag = c.rag
+            continue
+        merged.append(c)
+    return merged
 
 
 def area_findings(project: Project, route: LineString, swathe, layers) -> list[Finding]:
@@ -156,10 +173,17 @@ def area_findings(project: Project, route: LineString, swathe, layers) -> list[F
             # Swathe clips the feature even though the centreline does not.
             ch = route.project(target.centroid)
             out.append(Finding("area", rule["label"], "construction swathe overlaps", ch, ch, 0.0, rule["rag"]))
-        for p in parts:
+        sections: list[list[float]] = []  # [from, to, length inside]
+        for p in sorted(parts, key=lambda p: route.project(Point(p.coords[0]))):
             a, b = sorted((route.project(Point(p.coords[0])), route.project(Point(p.coords[-1]))))
-            out.append(Finding("area", rule["label"], f"{p.length:.0f} m of centreline inside",
-                               round(a, 1), round(b, 1), round(p.length, 1), rule["rag"]))
+            if sections and a - sections[-1][1] <= project.merge_area_gap_m:
+                sections[-1][1] = max(sections[-1][1], b)
+                sections[-1][2] += p.length
+            else:
+                sections.append([a, b, p.length])
+        for a, b, length in sections:
+            out.append(Finding("area", rule["label"], f"{length:.0f} m of centreline inside",
+                               round(a, 1), round(b, 1), round(length, 1), rule["rag"]))
     return out
 
 

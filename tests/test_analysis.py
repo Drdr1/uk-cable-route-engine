@@ -70,3 +70,28 @@ def test_worst():
     assert worst(["GREEN", "AMBER"]) == "AMBER"
     assert worst(["GREEN", "RED", "AMBER"]) == "RED"
     assert worst([]) == "GREEN"
+
+
+def test_dual_carriageway_is_one_crossing(project, layers):
+    import geopandas as gpd
+
+    dual = gpd.GeoDataFrame({"cls": ["trunk", "trunk"], "label": ["A21", "A21"]},
+                            geometry=[LineString([(501000, 100000), (501000, 103000)]),
+                                      LineString([(501020, 100000), (501020, 103000)])], crs="EPSG:27700")
+    xs = find_crossings(project, STRAIGHT, dict(layers, roads=dual))
+    roads = [c for c in xs if c.type == "Road"]
+    assert len(roads) == 1
+    assert roads[0].rag == "RED" and "dual carriageway" in roads[0].reason
+
+
+def test_flood_zone_slivers_merge_into_sections(project, layers):
+    import geopandas as gpd
+    from shapely.geometry import box
+
+    slivers = gpd.GeoDataFrame({"cls": ["fz3"] * 3, "label": [""] * 3},
+                               geometry=[box(501000, 102500, 501100, 102700), box(501110, 102500, 501200, 102700),
+                                         box(502800, 102500, 502900, 102700)], crs="EPSG:27700")
+    [a] = assess(project, [Route(1, STRAIGHT, 1.0, [])], dict(layers, flood_zone_3=slivers), [])
+    fz = [f for f in a.findings if f.item == "Flood Zone 3"]
+    assert len(fz) == 2
+    assert fz[0].value == pytest.approx(190, abs=1) and fz[0].to_ch - fz[0].from_ch == pytest.approx(200, abs=1)

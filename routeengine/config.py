@@ -65,6 +65,8 @@ class Project:
     max_deflection_deg: float
     oblique_crossing_deg: float
     crossing_band_m: float
+    merge_crossings_m: float
+    merge_area_gap_m: float
     sources: tuple[SourceConfig, ...]
     cost_rules: tuple[CostRule, ...]
     crossing_rules: tuple[CrossingRule, ...]
@@ -100,6 +102,8 @@ def load_project(path: str | Path) -> Project:
         max_deflection_deg=float(r.get("max_deflection_deg", 60)),
         oblique_crossing_deg=float(r.get("oblique_crossing_deg", 60)),
         crossing_band_m=float(r.get("crossing_band_m", 30)),
+        merge_crossings_m=float(r.get("merge_crossings_m", 60)),
+        merge_area_gap_m=float(r.get("merge_area_gap_m", 25)),
         sources=tuple(SourceConfig(**{**s, "class_values": tuple(s.get("class_values", ()))}) for s in raw["sources"]),
         cost_rules=tuple(
             CostRule(layer=c["layer"], mode=c["mode"], factor=float(c.get("factor", 1.0)),

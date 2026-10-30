@@ -42,7 +42,7 @@ ROUTE_COLORS = ["#d62728", "#1f77b4", "#ff7f0e", "#9467bd"]
 
 
 def overview_map(project: Project, assessments: list[RouteAssessment], layers, path: Path) -> Path:
-    fig, ax = plt.subplots(figsize=(11, 8.2), dpi=150)
+    fig, ax = plt.subplots(figsize=(13.5, 8.2), dpi=150)
     handles = []
     for name, (color, label) in LAYER_STYLE.items():
         gdf = layers.get(name)
@@ -77,7 +77,7 @@ def overview_map(project: Project, assessments: list[RouteAssessment], layers, p
     ax.set_xlabel("Easting (m, EPSG:27700)", fontsize=8)
     ax.set_ylabel("Northing (m)", fontsize=8)
     ax.set_title(project.name, fontsize=11, weight="bold")
-    ax.legend(handles=handles, loc="lower left", fontsize=7, framealpha=0.92)
+    ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=7, framealpha=0.92, borderaxespad=0)
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
@@ -177,7 +177,7 @@ def write_pdf(project: Project, assessments: list[RouteAssessment], manifest: li
                + [[str(v) for v in r] for r in _summary_rows(assessments)],
                [16 * mm, 24 * mm, 22 * mm, 26 * mm, 20 * mm, 90 * mm, 14 * mm, 16 * mm, 18 * mm], rag_col=8),
         Spacer(1, 4 * mm),
-        Image(str(map_png), width=140 * mm, height=104 * mm),
+        Image(str(map_png), width=160 * mm, height=97 * mm),
         PageBreak(),
         Paragraph(f"Crossings: recommended route ({main.route.length_m / 1000:.2f} km)", styles["Heading3"]),
     ]

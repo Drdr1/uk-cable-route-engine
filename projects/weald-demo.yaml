@@ -8,7 +8,7 @@ study_area:
   bbox: [552500, 141500, 565500, 151500]   # British National Grid (EPSG:27700), metres
 
 route:
-  start: {xy: [554300, 143700], label: "Point A (illustrative generation site)"}
+  start: {xy: [555300, 143700], label: "Point A (illustrative generation site)"}
   end:   {xy: [563100, 149500], label: "Point B (illustrative substation)"}
 
 routing:
@@ -20,6 +20,8 @@ routing:
   max_deflection_deg: 60
   oblique_crossing_deg: 60
   crossing_band_m: 30         # linear features drawn this wide: square crossings become cheapest
+  merge_crossings_m: 60       # dual carriageways / twin tracks reported as one crossing
+  merge_area_gap_m: 25        # flood-zone pieces closer than this reported as one section
 
 sources:
   - name: sssi

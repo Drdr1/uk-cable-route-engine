@@ -99,11 +99,11 @@ Adding a source is a few lines of YAML. ArcGIS Feature/Map services, OGC API Fea
 
 ## Tests
 
-`pytest` runs 32 tests offline on a synthetic study area in real BNG coordinates. It covers:
+`pytest` runs 34 tests offline on a synthetic study area in real BNG coordinates. It covers:
 - **Sources:** ArcGIS paging, Esri JSON polygons with holes, OGC API discovery, paging and CRS fallback, Overpass parsing and coordinate order.
 - **ETL:** geometry repair, clipping, optional versus required layer failures.
 - **Routing:** cost surface rules, avoiding exclusions, end-point snapping, distinct alternatives, blocked corridors.
-- **Analysis:** crossing chainage, angle and RAG, oblique escalation, flood-zone lengths, data-gap reporting.
+- **Analysis:** crossing chainage, angle and RAG, oblique escalation, dual carriageways as one crossing, flood-zone sections, data-gap reporting.
 - **Outputs:** DXF units, layers, coordinates and chainage labels; client template layers preserved; Excel and PDF contents; the static site.
 - **PostGIS:** round trip with a spatial index and `ST_Intersects`, against a real PostGIS service in CI.
 
