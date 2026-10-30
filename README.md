@@ -91,16 +91,16 @@ routeengine postgis --project projects/weald-demo.yaml --postgis-url postgresql+
 |---|---|---|
 | SSSI | Natural England ArcGIS Feature Service | same |
 | Ancient woodland | Natural England ArcGIS Feature Service | same |
-| Flood Zone 3 | Environment Agency (DEFRA ArcGIS REST) | same / DEFRA Data Services Platform |
+| Flood Zone 3 | Environment Agency, DEFRA Data Services Platform (OGC API Features) | same |
 | Roads, railways, watercourses, buildings, power lines | OpenStreetMap via Overpass | OS Data Hub: MasterMap Topography and Highways (API key and licence) |
 | Client data (survey, land ownership, existing assets) | — | any GeoPackage / Shapefile / GeoJSON (`type: file`) |
 
-Adding a source is a few lines of YAML. ArcGIS Feature/Map services, Overpass and local files are built in. An OGC API Features adapter for the OS NGD API is the same pattern.
+Adding a source is a few lines of YAML. ArcGIS Feature/Map services, OGC API Features (DEFRA DSP, OS NGD API), Overpass and local files are built in.
 
 ## Tests
 
-`pytest` runs 30 tests offline on a synthetic study area in real BNG coordinates. It covers:
-- **Sources:** paging, Esri JSON polygons with holes, Overpass parsing and coordinate order.
+`pytest` runs 32 tests offline on a synthetic study area in real BNG coordinates. It covers:
+- **Sources:** ArcGIS paging, Esri JSON polygons with holes, OGC API discovery, paging and CRS fallback, Overpass parsing and coordinate order.
 - **ETL:** geometry repair, clipping, optional versus required layer failures.
 - **Routing:** cost surface rules, avoiding exclusions, end-point snapping, distinct alternatives, blocked corridors.
 - **Analysis:** crossing chainage, angle and RAG, oblique escalation, flood-zone lengths, data-gap reporting.

@@ -39,7 +39,7 @@ class Http(Protocol):
 
 
 class RequestsHttp:
-    def __init__(self, retries: int = 3, timeout: float = 120):
+    def __init__(self, retries: int = 3, timeout: tuple[float, float] = (15, 180)):
         self.session = requests.Session()
         self.session.headers["User-Agent"] = USER_AGENT
         self.retries = retries
@@ -135,9 +135,11 @@ def fetch_arcgis(src: SourceConfig, bbox: tuple[float, float, float, float], htt
 _to_wgs84 = Transformer.from_crs(BNG, "EPSG:4326", always_xy=True)
 
 
-def overpass_bbox(bbox: tuple[float, float, float, float]) -> str:
-    """Overpass wants south,west,north,east in WGS84."""
+def overpass_bbox(bbox: tuple[float, float, float, float], lonlat: bool = False) -> str:
+    """WGS84 bbox: south,west,north,east for Overpass; west,south,east,north (lon/lat) for OGC APIs."""
     xs, ys = _to_wgs84.transform([bbox[0], bbox[2], bbox[0], bbox[2]], [bbox[1], bbox[1], bbox[3], bbox[3]])
+    if lonlat:
+        return f"{min(xs):.6f},{min(ys):.6f},{max(xs):.6f},{max(ys):.6f}"
     return f"{min(ys):.6f},{min(xs):.6f},{max(ys):.6f},{max(xs):.6f}"
 
 
@@ -166,6 +168,73 @@ def fetch_overpass(src: SourceConfig, bbox: tuple[float, float, float, float], h
     return gdf.to_crs(BNG)
 
 
+BNG_URI = "http://www.opengis.net/def/crs/EPSG/0/27700"
+
+
+def _ogc_collection(src: SourceConfig, http: Http) -> str:
+    """Configured collection id, or discover it: first collection whose id/title contains `query`."""
+    if src.layer:
+        return src.layer
+    body = http.get(src.url.rstrip("/") + "/collections", {"f": "json"})
+    collections = body.get("collections", [])
+    if not collections:
+        raise SourceError("OGC API: no collections")
+    wanted = (src.query or "").lower()
+    for c in collections:
+        if not wanted or wanted in (c.get("id", "") + " " + c.get("title", "")).lower():
+            log.info("%s: using OGC collection %r of %s", src.name, c.get("id"),
+                     [x.get("id") for x in collections])
+            return c["id"]
+    raise SourceError(f"OGC API: no collection matching {wanted!r} in {[c.get('id') for c in collections]}")
+
+
+def fetch_ogcapi(src: SourceConfig, bbox: tuple[float, float, float, float], http: Http,
+                 page_size: int = 1000, max_pages: int = 200) -> gpd.GeoDataFrame:
+    """OGC API - Features (EA/DEFRA Data Services Platform, OS NGD API). Requests BNG; falls back to WGS84."""
+    collection = _ogc_collection(src, http)
+    url = f"{src.url.rstrip('/')}/collections/{collection}/items"
+    attempts = [
+        ({"bbox": ",".join(str(v) for v in bbox), "bbox-crs": BNG_URI, "crs": BNG_URI}, BNG),
+        ({"bbox": overpass_bbox(bbox, lonlat=True)}, "EPSG:4326"),
+    ]
+    last: Exception | None = None
+    for params, crs in attempts:
+        try:
+            features, next_url, next_params = [], url, {**params, "limit": page_size, "f": "json"}
+            for _ in range(max_pages):
+                body = http.get(next_url, next_params)
+                features += body.get("features", [])
+                nxt = next((l["href"] for l in body.get("links", []) if l.get("rel") == "next"), None)
+                if not nxt or not body.get("features"):
+                    break
+                next_url, next_params = nxt, {}
+            break
+        except SourceError as exc:
+            last = exc
+    else:
+        raise SourceError(f"OGC API {url}: {last}")
+    if features:
+        props = features[0].get("properties", {})
+        log.info("%s: %d features; attributes %s", src.name, len(features),
+                 {k: props[k] for k in list(props)[:12]})
+    rows, geoms = [], []
+    for f in features:
+        if not f.get("geometry"):
+            continue
+        props = f.get("properties", {})
+        cls = str(props.get(src.class_field, "")) if src.class_field else src.name
+        if src.class_values and src.class_field in props and cls not in src.class_values:
+            continue
+        geoms.append(shape(f["geometry"]))
+        rows.append({"cls": cls, "label": str(props.get(src.name_field) or "") if src.name_field else ""})
+    if not geoms:
+        return _empty()
+    gdf = gpd.GeoDataFrame(rows, geometry=geoms, crs=crs)
+    if crs == BNG and gdf.total_bounds[2] < 1000:  # server ignored crs and sent lon/lat
+        gdf = gdf.set_crs("EPSG:4326", allow_override=True)
+    return gdf.to_crs(BNG)
+
+
 def fetch_file(src: SourceConfig, bbox: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
     try:
         gdf = gpd.read_file(src.path, bbox=bbox, layer=src.layer or None)
@@ -185,6 +254,8 @@ def fetch(src: SourceConfig, bbox: tuple[float, float, float, float], http: Http
         return fetch_arcgis(src, bbox, http)
     if src.type == "overpass":
         return fetch_overpass(src, bbox, http)
+    if src.type == "ogcapi":
+        return fetch_ogcapi(src, bbox, http)
     if src.type == "file":
         return fetch_file(src, bbox)
     raise ValueError(f"unknown source type {src.type}")

@@ -1,7 +1,7 @@
 name: live-demo
 
 # Runs the engine on live UK data (Natural England, Environment Agency, OpenStreetMap)
-# and publishes the interactive map + DXF / Excel / PDF outputs to GitHub Pages.
+# and publishes the interactive map + DXF / Excel / PDF outputs to the gh-pages branch (GitHub Pages).
 on:
   push:
     branches: [main]
@@ -10,9 +10,7 @@ on:
     - cron: "17 5 * * 1"   # weekly refresh: constraint datasets change
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write   # pushes the built site to the gh-pages branch
 
 concurrency:
   group: pages
@@ -46,15 +44,13 @@ jobs:
           name: outputs
           path: output/
           if-no-files-found: ignore
-      - uses: actions/upload-pages-artifact@v3
-        with: { path: site }
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - id: deploy
-        uses: actions/deploy-pages@v4
+      - name: Publish to gh-pages branch
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd site
+          touch .nojekyll
+          git init -q -b gh-pages
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Live demo build ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages

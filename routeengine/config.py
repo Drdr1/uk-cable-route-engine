@@ -20,7 +20,8 @@ class SourceConfig:
     url: str = ""
     query: str = ""  # Overpass QL body (bbox appended) or ArcGIS where clause
     path: str = ""  # for type=file
-    layer: str = ""  # for type=file: layer inside a GeoPackage
+    layer: str = ""  # type=file: GeoPackage layer; type=ogcapi: collection id (else discovered via `query`)
+    class_values: tuple[str, ...] = ()  # keep only features whose class is one of these (if the field exists)
     class_field: str = ""  # attribute holding the feature class (e.g. highway=primary)
     name_field: str = ""  # attribute holding a human-readable name
     attribution: str = ""
@@ -99,7 +100,7 @@ def load_project(path: str | Path) -> Project:
         max_deflection_deg=float(r.get("max_deflection_deg", 60)),
         oblique_crossing_deg=float(r.get("oblique_crossing_deg", 60)),
         crossing_band_m=float(r.get("crossing_band_m", 30)),
-        sources=tuple(SourceConfig(**s) for s in raw["sources"]),
+        sources=tuple(SourceConfig(**{**s, "class_values": tuple(s.get("class_values", ()))}) for s in raw["sources"]),
         cost_rules=tuple(
             CostRule(layer=c["layer"], mode=c["mode"], factor=float(c.get("factor", 1.0)),
                      buffer_m=float(c.get("buffer_m", 0.0)), classes=tuple(c.get("classes", ())))

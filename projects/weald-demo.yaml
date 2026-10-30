@@ -36,9 +36,12 @@ sources:
     name_field: NAME
     attribution: "Contains Natural England data © Natural England copyright and database right"
   - name: flood_zone_3
-    type: arcgis
+    type: ogcapi                       # DEFRA Data Services Platform, OGC API - Features
     geometry: polygon
-    url: https://gisrest.defra.gov.uk/server/rest/services/EA/FloodMapForPlanningRiversAndSeaFloodZone3/MapServer/0
+    url: https://environment.data.gov.uk/spatialdata/flood-map-for-planning-flood-zones/ogc/features/v1
+    query: "zone"                      # collection discovered by id/title
+    class_field: flood_zone
+    class_values: ["FZ3", "Flood Zone 3", "3"]
     attribution: "© Environment Agency copyright and/or database right. All rights reserved."
   - name: buildings
     type: overpass

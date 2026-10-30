@@ -125,3 +125,52 @@ def test_required_layer_failure_stops_the_run(project, tmp_path, monkeypatch):
 
 def test_clip_box_helper():
     assert box(0, 0, 1, 1).area == 1
+
+
+def ogc_feature(x, y, zone):
+    return {"type": "Feature", "properties": {"flood_zone": zone},
+            "geometry": {"type": "Polygon", "coordinates": [[[x, y], [x + 50, y], [x + 50, y + 50], [x, y + 50], [x, y]]]}}
+
+
+class OgcHttp:
+    def __init__(self, fail_bng=False):
+        self.calls = []
+        self.fail_bng = fail_bng
+
+    def get(self, url, params):
+        self.calls.append((url, params))
+        if url.endswith("/collections"):
+            return {"collections": [{"id": "other", "title": "Other"}, {"id": "flood_zones", "title": "Flood Zones"}]}
+        if self.fail_bng and params.get("crs"):
+            raise SourceError("400 crs not supported")
+        if "page=2" in url:
+            return {"features": [ogc_feature(500300, 100300, "FZ3")], "links": []}
+        if params.get("crs"):
+            return {"features": [ogc_feature(500100, 100100, "FZ3"), ogc_feature(500200, 100200, "FZ2")],
+                    "links": [{"rel": "next", "href": "https://x/collections/flood_zones/items?page=2"}]}
+        # WGS84 fallback
+        return {"features": [{"type": "Feature", "properties": {"flood_zone": "FZ3"},
+                              "geometry": {"type": "Point", "coordinates": [0.27, 51.19]}}], "links": []}
+
+
+def test_ogcapi_discovers_collection_pages_and_filters_classes():
+    from routeengine.sources import fetch_ogcapi
+
+    src = SourceConfig(name="flood_zone_3", type="ogcapi", geometry="polygon", url="https://x", query="zone",
+                       class_field="flood_zone", class_values=("FZ3",))
+    http = OgcHttp()
+    gdf = fetch_ogcapi(src, (500000, 100000, 501000, 101000), http)
+    assert len(gdf) == 2 and set(gdf["cls"]) == {"FZ3"}
+    assert gdf.crs.to_epsg() == 27700
+    items_call = http.calls[1]
+    assert items_call[0] == "https://x/collections/flood_zones/items"
+    assert items_call[1]["bbox-crs"].endswith("27700")
+
+
+def test_ogcapi_falls_back_to_wgs84_when_bng_is_refused():
+    from routeengine.sources import fetch_ogcapi
+
+    src = SourceConfig(name="fz", type="ogcapi", geometry="polygon", url="https://x", layer="flood_zones")
+    gdf = fetch_ogcapi(src, (552500, 141500, 565500, 151500), OgcHttp(fail_bng=True))
+    x, y = gdf.geometry.iloc[0].coords[0]
+    assert 550000 < x < 570000 and 140000 < y < 152000
