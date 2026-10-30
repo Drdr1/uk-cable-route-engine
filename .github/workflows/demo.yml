@@ -1,0 +1,60 @@
+name: live-demo
+
+# Runs the engine on live UK data (Natural England, Environment Agency, OpenStreetMap)
+# and publishes the interactive map + DXF / Excel / PDF outputs to GitHub Pages.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"   # weekly refresh: constraint datasets change
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -e .
+      - name: Fetch live constraints and route
+        shell: bash
+        run: |
+          set -o pipefail
+          routeengine all --project projects/weald-demo.yaml 2>&1 | tee run.log
+      - name: Build site
+        run: python -m routeengine.site --project projects/weald-demo.yaml
+      - if: failure()
+        run: python3 .github/scripts/annotate.py run.log
+      - if: always()
+        run: |
+          if [ -f run.log ]; then
+            grep -E "routeengine.etl|routed|WARNING" run.log | sed 's/^/::notice title=run::/' || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: outputs
+          path: output/
+          if-no-files-found: ignore
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

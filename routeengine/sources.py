@@ -1,0 +1,194 @@
+"""Fetch vector layers for a study area from public UK services.
+
+* ArcGIS FeatureServer / MapServer (Natural England, Environment Agency, most
+  council and DEFRA services): bbox query in British National Grid, paged.
+* Overpass (OpenStreetMap): roads, rail, waterways, buildings, power lines.
+  In production the same layers come from the OS Data Hub (MasterMap
+  Topography / Highways), which needs an API key and licence.
+* Local files (GeoPackage, Shapefile, GeoJSON) for client-supplied data.
+
+Every fetcher returns a GeoDataFrame in EPSG:27700 with `cls` (feature class)
+and `label` columns, so the rest of the engine never cares where data came from.
+"""
+from __future__ import annotations
+
+import logging
+import time
+from typing import Protocol
+
+import geopandas as gpd
+import requests
+from pyproj import Transformer
+from shapely.geometry import LinearRing, LineString, MultiLineString, MultiPolygon, Polygon, shape
+
+from .config import BNG, SourceConfig
+
+log = logging.getLogger(__name__)
+
+USER_AGENT = "uk-cable-route-engine/0.1 (+https://github.com/Drdr1/uk-cable-route-engine)"
+
+
+class SourceError(Exception):
+    pass
+
+
+class Http(Protocol):
+    def get(self, url: str, params: dict) -> dict: ...
+
+    def post(self, url: str, data: dict) -> dict: ...
+
+
+class RequestsHttp:
+    def __init__(self, retries: int = 3, timeout: float = 120):
+        self.session = requests.Session()
+        self.session.headers["User-Agent"] = USER_AGENT
+        self.retries = retries
+        self.timeout = timeout
+
+    def _call(self, method: str, url: str, **kwargs) -> dict:
+        last: Exception | None = None
+        for attempt in range(1, self.retries + 1):
+            try:
+                resp = self.session.request(method, url, timeout=self.timeout, **kwargs)
+                if resp.status_code == 429 or resp.status_code >= 500:
+                    raise SourceError(f"HTTP {resp.status_code}")
+                resp.raise_for_status()
+                body = resp.json()
+                if isinstance(body, dict) and "error" in body:
+                    raise SourceError(f"service error: {body['error']}")
+                return body
+            except (requests.RequestException, ValueError, SourceError) as exc:
+                last = exc
+                if attempt < self.retries:
+                    time.sleep(2 ** attempt)
+        raise SourceError(f"{url}: {last}")
+
+    def get(self, url: str, params: dict) -> dict:
+        return self._call("GET", url, params=params)
+
+    def post(self, url: str, data: dict) -> dict:
+        return self._call("POST", url, data=data)
+
+
+def _empty() -> gpd.GeoDataFrame:
+    return gpd.GeoDataFrame({"cls": [], "label": []}, geometry=[], crs=BNG)
+
+
+def esri_to_shapely(geom: dict):
+    """Esri JSON geometry -> shapely. Outer rings are clockwise, holes counter-clockwise."""
+    if "rings" in geom:
+        shells, holes = [], []
+        for ring in geom["rings"]:
+            if len(ring) < 4:
+                continue
+            (holes if LinearRing(ring).is_ccw else shells).append(ring)
+        polys = []
+        for shell in shells:
+            outer = Polygon(shell)
+            inner = [h for h in holes if outer.contains(Polygon(h).representative_point())]
+            polys.append(Polygon(shell, inner))
+        if not polys:
+            return None
+        return polys[0] if len(polys) == 1 else MultiPolygon(polys)
+    if "paths" in geom:
+        lines = [LineString(p) for p in geom["paths"] if len(p) >= 2]
+        return lines[0] if len(lines) == 1 else MultiLineString(lines)
+    return None
+
+
+def fetch_arcgis(src: SourceConfig, bbox: tuple[float, float, float, float], http: Http,
+                 page_size: int = 1000) -> gpd.GeoDataFrame:
+    url = src.url.rstrip("/") + "/query"
+    base = {
+        "where": src.query or "1=1",
+        "geometry": ",".join(str(v) for v in bbox),
+        "geometryType": "esriGeometryEnvelope",
+        "inSR": 27700,
+        "outSR": 27700,
+        "spatialRel": "esriSpatialRelIntersects",
+        "outFields": "*",
+        "returnGeometry": "true",
+        "f": "json",
+        "resultRecordCount": page_size,
+    }
+    geoms, classes, labels = [], [], []
+    offset = 0
+    while True:
+        body = http.get(url, {**base, "resultOffset": offset})
+        features = body.get("features", [])
+        for f in features:
+            g = esri_to_shapely(f.get("geometry") or {})
+            if g is None or g.is_empty:
+                continue
+            attrs = f.get("attributes", {})
+            geoms.append(g)
+            classes.append(str(attrs.get(src.class_field, "")) if src.class_field else src.name)
+            labels.append(str(attrs.get(src.name_field) or "") if src.name_field else "")
+        if not body.get("exceededTransferLimit") or not features:
+            break
+        offset += len(features)
+    if not geoms:
+        return _empty()
+    return gpd.GeoDataFrame({"cls": classes, "label": labels}, geometry=geoms, crs=BNG)
+
+
+_to_wgs84 = Transformer.from_crs(BNG, "EPSG:4326", always_xy=True)
+
+
+def overpass_bbox(bbox: tuple[float, float, float, float]) -> str:
+    """Overpass wants south,west,north,east in WGS84."""
+    xs, ys = _to_wgs84.transform([bbox[0], bbox[2], bbox[0], bbox[2]], [bbox[1], bbox[1], bbox[3], bbox[3]])
+    return f"{min(ys):.6f},{min(xs):.6f},{max(ys):.6f},{max(xs):.6f}"
+
+
+def fetch_overpass(src: SourceConfig, bbox: tuple[float, float, float, float], http: Http) -> gpd.GeoDataFrame:
+    selector = src.query.replace("{bbox}", overpass_bbox(bbox))
+    ql = f"[out:json][timeout:180];({selector});out tags geom;"
+    body = http.post(src.url or "https://overpass-api.de/api/interpreter", {"data": ql})
+    geoms, classes, labels = [], [], []
+    for el in body.get("elements", []):
+        coords = [(p["lon"], p["lat"]) for p in el.get("geometry", []) if p]
+        if len(coords) < 2:
+            continue
+        tags = el.get("tags", {})
+        if src.geometry == "polygon":
+            if len(coords) < 4 or coords[0] != coords[-1]:
+                continue
+            geom = Polygon(coords)
+        else:
+            geom = LineString(coords)
+        geoms.append(geom)
+        classes.append(tags.get(src.class_field, src.name) if src.class_field else src.name)
+        labels.append(tags.get(src.name_field, "") or tags.get("ref", "") if src.name_field else "")
+    if not geoms:
+        return _empty()
+    gdf = gpd.GeoDataFrame({"cls": classes, "label": labels}, geometry=geoms, crs="EPSG:4326")
+    return gdf.to_crs(BNG)
+
+
+def fetch_file(src: SourceConfig, bbox: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
+    try:
+        gdf = gpd.read_file(src.path, bbox=bbox, layer=src.layer or None)
+    except Exception as exc:  # pyogrio raises its own error types for missing/corrupt files
+        raise SourceError(f"{src.path}: {exc}") from exc
+    if gdf.crs is None:
+        raise SourceError(f"{src.path} has no CRS")
+    gdf = gdf.to_crs(BNG)
+    gdf["cls"] = gdf[src.class_field].astype(str) if src.class_field else src.name
+    gdf["label"] = gdf[src.name_field].fillna("").astype(str) if src.name_field else ""
+    return gdf[["cls", "label", "geometry"]]
+
+
+def fetch(src: SourceConfig, bbox: tuple[float, float, float, float], http: Http | None = None) -> gpd.GeoDataFrame:
+    http = http or RequestsHttp()
+    if src.type == "arcgis":
+        return fetch_arcgis(src, bbox, http)
+    if src.type == "overpass":
+        return fetch_overpass(src, bbox, http)
+    if src.type == "file":
+        return fetch_file(src, bbox)
+    raise ValueError(f"unknown source type {src.type}")
+
+
+def geojson_to_shapely(geom: dict):
+    return shape(geom)

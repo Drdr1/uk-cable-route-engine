@@ -1,0 +1,132 @@
+# Illustrative study: a 132 kV underground cable between two hypothetical points
+# in the Kent Weald (dense ancient woodland, SSSIs, the River Medway floodplain,
+# main-line railways and the A21/A26). Points A and B are not real assets.
+name: "Weald demo: 132 kV UGC, Point A to Point B"
+description: "Illustrative 132 kV underground cable corridor study, Tonbridge area, Kent."
+
+study_area:
+  bbox: [552500, 141500, 565500, 151500]   # British National Grid (EPSG:27700), metres
+
+route:
+  start: {xy: [554300, 143700], label: "Point A (illustrative generation site)"}
+  end:   {xy: [563100, 149500], label: "Point B (illustrative substation)"}
+
+routing:
+  resolution_m: 10
+  swathe_width_m: 20          # working width for a single 132 kV circuit (configurable)
+  alternatives: 3
+  alternative_penalty: 4.0
+  alternative_buffer_m: 300
+  max_deflection_deg: 60
+  oblique_crossing_deg: 60
+  crossing_band_m: 30         # linear features drawn this wide: square crossings become cheapest
+
+sources:
+  - name: sssi
+    type: arcgis
+    geometry: polygon
+    url: https://services.arcgis.com/JJzESW51TqeY9uat/ArcGIS/rest/services/SSSI_England/FeatureServer/0
+    name_field: SSSI_NAME
+    attribution: "Contains Natural England data © Natural England copyright and database right"
+    required: true
+  - name: ancient_woodland
+    type: arcgis
+    geometry: polygon
+    url: https://services.arcgis.com/JJzESW51TqeY9uat/ArcGIS/rest/services/Ancient_Woodland_England/FeatureServer/0
+    name_field: NAME
+    attribution: "Contains Natural England data © Natural England copyright and database right"
+  - name: flood_zone_3
+    type: arcgis
+    geometry: polygon
+    url: https://gisrest.defra.gov.uk/server/rest/services/EA/FloodMapForPlanningRiversAndSeaFloodZone3/MapServer/0
+    attribution: "© Environment Agency copyright and/or database right. All rights reserved."
+  - name: buildings
+    type: overpass
+    geometry: polygon
+    query: 'way["building"]({bbox});'
+    attribution: "© OpenStreetMap contributors, ODbL (production: OS MasterMap Topography)"
+  - name: roads
+    type: overpass
+    geometry: line
+    query: 'way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|tertiary|unclassified|residential)$"]({bbox});'
+    class_field: highway
+    name_field: ref
+    attribution: "© OpenStreetMap contributors, ODbL (production: OS MasterMap Highways)"
+  - name: railways
+    type: overpass
+    geometry: line
+    query: 'way["railway"~"^(rail|light_rail|narrow_gauge)$"]({bbox});'
+    class_field: railway
+    name_field: name
+    attribution: "© OpenStreetMap contributors, ODbL"
+  - name: waterways
+    type: overpass
+    geometry: line
+    query: 'way["waterway"~"^(river|canal|stream)$"]({bbox});'
+    class_field: waterway
+    name_field: name
+    attribution: "© OpenStreetMap contributors, ODbL (production: OS / EA main rivers)"
+  - name: power_lines
+    type: overpass
+    geometry: line
+    query: 'way["power"~"^(line|minor_line|cable)$"]({bbox});'
+    class_field: power
+    name_field: ref
+    attribution: "© OpenStreetMap contributors, ODbL"
+
+# Cost surface. exclude = impassable; multiply = cost factor (applied cumulatively).
+cost_rules:
+  - {layer: sssi, mode: exclude}
+  - {layer: sssi, mode: multiply, factor: 3, buffer_m: 100}
+  - {layer: ancient_woodland, mode: exclude}
+  - {layer: ancient_woodland, mode: multiply, factor: 6, buffer_m: 15}   # Natural England standing-advice buffer
+  - {layer: buildings, mode: exclude, buffer_m: 10}
+  - {layer: flood_zone_3, mode: multiply, factor: 3}
+
+# Extra cost per grid cell inside a feature's crossing band; per feature class, "*" = default.
+crossing_rules:
+  - layer: railways
+    label: Railway
+    penalty: {"*": 500}
+    rag: {"*": RED}                       # Network Rail asset protection, trenchless crossing
+  - layer: roads
+    label: Road
+    penalty: {motorway: 500, motorway_link: 400, trunk: 350, trunk_link: 300, primary: 150, primary_link: 120,
+              secondary: 80, tertiary: 50, "*": 20}
+    rag: {motorway: RED, motorway_link: RED, trunk: RED, trunk_link: RED, primary: AMBER, primary_link: AMBER,
+          secondary: AMBER, "*": GREEN}
+  - layer: waterways
+    label: Watercourse
+    penalty: {river: 250, canal: 250, "*": 40}
+    rag: {river: AMBER, canal: AMBER, "*": GREEN}
+  - layer: power_lines
+    label: Power line
+    penalty: {line: 150, cable: 200, "*": 60}
+    rag: {"*": AMBER}                     # asset owner consent / proximity agreement
+
+area_rules:
+  - {layer: flood_zone_3, label: "Flood Zone 3", rag: AMBER}
+  - {layer: sssi, label: "SSSI", rag: RED}
+  - {layer: ancient_woodland, label: "Ancient woodland", rag: RED}
+
+proximity_rules:
+  - {layer: ancient_woodland, within_m: 15, rag: RED, label: "Within 15 m of ancient woodland (standing-advice buffer)"}
+  - {layer: sssi, within_m: 500, rag: AMBER, label: "SSSI within 500 m"}
+  - {layer: buildings, within_m: 30, rag: AMBER, label: "Buildings within 30 m"}
+
+cad:
+  template: ""                 # optional: path to the client's template DXF (layers, styles, title block)
+  text_height: 6
+  chainage_tick_m: 100
+  chainage_label_m: 500
+  constraint_corridor_m: 750
+  layers:
+    route:       {name: "E-132KV-UGC-ROUTE", color: 1}
+    alternative: {name: "E-132KV-UGC-ALT", color: 8}
+    swathe:      {name: "E-132KV-UGC-SWATHE", color: 4, linetype: DASHED}
+    chainage:    {name: "E-132KV-UGC-CHAINAGE", color: 7}
+    crossing:    {name: "E-132KV-UGC-CROSSINGS", color: 6}
+    endpoints:   {name: "E-132KV-UGC-ENDPOINTS", color: 5}
+    constraint:  {name: "C-{layer}", color: 9}
+  constraint_colors: {sssi: 3, ancient_woodland: 94, flood_zone_3: 150, buildings: 8, roads: 33, railways: 250,
+                      waterways: 5, power_lines: 6}

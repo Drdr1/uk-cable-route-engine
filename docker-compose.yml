@@ -1,0 +1,14 @@
+# Optional PostGIS for publishing cleaned constraint layers:
+#   docker compose up -d
+#   routeengine postgis --project projects/weald-demo.yaml --postgis-url postgresql+psycopg2://routes:routes@localhost:5432/routes
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: routes
+      POSTGRES_USER: routes
+      POSTGRES_PASSWORD: routes
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+volumes:
+  pgdata:
