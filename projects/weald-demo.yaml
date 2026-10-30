@@ -86,6 +86,7 @@ cost_rules:
   - {layer: ancient_woodland, mode: exclude}
   - {layer: ancient_woodland, mode: multiply, factor: 6, buffer_m: 15}   # Natural England standing-advice buffer
   - {layer: buildings, mode: exclude, buffer_m: 10}
+  - {layer: buildings, mode: multiply, factor: 2.5, buffer_m: 60}     # residential amenity: prefer open land
   - {layer: flood_zone_3, mode: multiply, factor: 3}
 
 # Extra cost per grid cell inside a feature's crossing band; per feature class, "*" = default.

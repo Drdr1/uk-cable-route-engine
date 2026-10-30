@@ -57,6 +57,7 @@ If a layer could not be fetched, the report says so in AMBER. A missing layer ca
 
 **Cost surface.** Every rule is configured per project in YAML (see `projects/weald-demo.yaml`):
 - `exclude` makes cells impassable: SSSI, ancient woodland, buildings plus 10 m.
+- Residential amenity: cells within 60 m of buildings cost ×2.5, so routes prefer open land to threading through towns.
 - `multiply` scales cost: Flood Zone 3 ×3, SSSI 100 m buffer ×3, ancient woodland 15 m buffer ×6.
 - Crossing penalties are set per feature class: motorway 500, A-road 150, railway 500, river 250, minor stream 40.
 
