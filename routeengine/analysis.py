@@ -253,8 +253,9 @@ def assess(project: Project, routes: list[Route], layers, manifest: list[LayerSt
                       + design_findings(project, r.line)
                       + list(gaps))
         results.append(a)
-    # Recommend the route with the fewest RED items, then the lowest cost.
-    results.sort(key=lambda a: (a.count("RED"), a.route.cost))
+    # Recommend the lowest weighted cost: it already prices every exclusion, buffer, flood zone and
+    # crossing. RED/AMBER counts are reported alongside for the engineer's judgement.
+    results.sort(key=lambda a: a.route.cost)
     for i, a in enumerate(results, start=1):
         a.route.rank = i
     return results

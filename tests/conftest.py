@@ -17,6 +17,10 @@ from pathlib import Path
 
 import geopandas as gpd
 import pytest
+
+import routeengine.sources as _sources
+
+_sources.OVERPASS_PAUSE_S = 0  # no politeness delay against fakes
 import yaml
 from shapely.geometry import LineString, box
 

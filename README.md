@@ -41,7 +41,7 @@ The demo is an illustrative 132 kV underground cable between two hypothetical po
 - constraints clipped to the corridor
 
 **`rag-report.xlsx` / `rag-report.pdf`** cover:
-- **Route comparison:** length, weighted cost, crossings by type, RED/AMBER counts.
+- **Route comparison:** length, weighted cost (the ranking), crossings by type, RED/AMBER counts.
 - **Crossings:** every road, railway, watercourse and power line crossed, with chainage, crossing angle and RAG.
 - **Constraint findings:** e.g. 335 m inside Flood Zone 3 from CH 3+416 to 3+751; ancient woodland within the 15 m standing-advice buffer; SSSI within 500 m.
 - **Design checks:** sharp deflections in the alignment.
@@ -63,7 +63,7 @@ If a layer could not be fetched, the report says so in AMBER. A missing layer ca
 
 **Square crossings by construction.** Linear features are drawn as 30 m bands and penalised per cell. An oblique crossing passes through far more penalised cells than a square one, so the optimiser prefers short, square crossings as an engineer would. The report still flags any crossing under 60° as oblique.
 
-**Alternatives.** After each route, a corridor around it is made more expensive and the search runs again. Each alternative is a genuinely different corridor, ranked on the original surface: fewest RED findings first, then lowest weighted cost.
+**Alternatives.** After each route, a corridor around it is made more expensive and the search runs again. Each alternative is a genuinely different corridor, ranked by weighted cost on the original surface, with RED/AMBER counts alongside for the engineer's judgement.
 
 **Safe simplification.** The staircase grid path is straightened with Douglas–Peucker, then re-checked so the straightened line never cuts into an excluded area.
 

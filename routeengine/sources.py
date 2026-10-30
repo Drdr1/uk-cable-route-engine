@@ -51,6 +51,7 @@ class RequestsHttp:
             try:
                 resp = self.session.request(method, url, timeout=self.timeout, **kwargs)
                 if resp.status_code == 429 or resp.status_code >= 500:
+                    self.last_status = resp.status_code
                     raise SourceError(f"HTTP {resp.status_code}")
                 resp.raise_for_status()
                 body = resp.json()
@@ -60,7 +61,10 @@ class RequestsHttp:
             except (requests.RequestException, ValueError, SourceError) as exc:
                 last = exc
                 if attempt < self.retries:
-                    time.sleep(2 ** attempt)
+                    # Rate limits (429) and gateway timeouts need a real pause, not a quick retry.
+                    slow = getattr(self, "last_status", 0) in (429, 502, 503, 504)
+                    time.sleep((10 if slow else 2) * 2 ** (attempt - 1))
+                    self.last_status = 0
         raise SourceError(f"{url}: {last}")
 
     def get(self, url: str, params: dict) -> dict:
@@ -134,6 +138,9 @@ def fetch_arcgis(src: SourceConfig, bbox: tuple[float, float, float, float], htt
 
 _to_wgs84 = Transformer.from_crs(BNG, "EPSG:4326", always_xy=True)
 
+OVERPASS_ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
+OVERPASS_PAUSE_S = 3.0
+
 
 def overpass_bbox(bbox: tuple[float, float, float, float], lonlat: bool = False) -> str:
     """WGS84 bbox: south,west,north,east for Overpass; west,south,east,north (lon/lat) for OGC APIs."""
@@ -146,7 +153,18 @@ def overpass_bbox(bbox: tuple[float, float, float, float], lonlat: bool = False)
 def fetch_overpass(src: SourceConfig, bbox: tuple[float, float, float, float], http: Http) -> gpd.GeoDataFrame:
     selector = src.query.replace("{bbox}", overpass_bbox(bbox))
     ql = f"[out:json][timeout:180];({selector});out tags geom;"
-    body = http.post(src.url or "https://overpass-api.de/api/interpreter", {"data": ql})
+    body = None
+    last: Exception | None = None
+    for endpoint in [src.url or OVERPASS_ENDPOINTS[0]] + [e for e in OVERPASS_ENDPOINTS if e != src.url]:
+        time.sleep(OVERPASS_PAUSE_S)  # be polite: public Overpass instances rate-limit bursts
+        try:
+            body = http.post(endpoint, {"data": ql})
+            break
+        except SourceError as exc:
+            last = exc
+            log.warning("%s: Overpass %s failed (%s), trying next instance", src.name, endpoint, exc)
+    if body is None:
+        raise SourceError(f"all Overpass instances failed: {last}")
     geoms, classes, labels = [], [], []
     for el in body.get("elements", []):
         coords = [(p["lon"], p["lat"]) for p in el.get("geometry", []) if p]
