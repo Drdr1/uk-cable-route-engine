@@ -1,0 +1,12 @@
+{
+"type": "FeatureCollection",
+"name": "crossings",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "ref": "X01", "type": "Railway", "cls": "rail", "name": "", "chainage": "4+607", "angle": 89.2, "rag": "RED", "reason": "Railway: rail; parallel features over 8 m (e.g. dual carriageway)" }, "geometry": { "type": "Point", "coordinates": [ 0.271950059464892, 51.191200636773068 ] } },
+{ "type": "Feature", "properties": { "ref": "X02", "type": "Railway", "cls": "rail", "name": "South Eastern Main Line", "chainage": "4+625", "angle": 89.2, "rag": "RED", "reason": "Railway: rail" }, "geometry": { "type": "Point", "coordinates": [ 0.271994588374337, 51.19136102440784 ] } },
+{ "type": "Feature", "properties": { "ref": "X03", "type": "Watercourse", "cls": "stream", "name": "Gas Works Stream", "chainage": "4+950", "angle": 79.9, "rag": "GREEN", "reason": "Watercourse: stream" }, "geometry": { "type": "Point", "coordinates": [ 0.275038007000965, 51.193472167626922 ] } },
+{ "type": "Feature", "properties": { "ref": "X04", "type": "Watercourse", "cls": "river", "name": "River Medway", "chainage": "5+160", "angle": 63.1, "rag": "AMBER", "reason": "Watercourse: river" }, "geometry": { "type": "Point", "coordinates": [ 0.275403720776076, 51.195352059887689 ] } },
+{ "type": "Feature", "properties": { "ref": "X05", "type": "Watercourse", "cls": "stream", "name": "Pen Stream", "chainage": "7+207", "angle": 67.7, "rag": "GREEN", "reason": "Watercourse: stream" }, "geometry": { "type": "Point", "coordinates": [ 0.295987153058692, 51.207926779232658 ] } }
+]
+}
