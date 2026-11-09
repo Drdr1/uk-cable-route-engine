@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cable Route Engine</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root { --bg:#f5f6f8; --panel:#fff; --ink:#1d2733; --muted:#5d6b7a; --line:#dde2e8;
+          --red:#d64545; --amber:#f0a030; --green:#3a9d5d; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--ink); background:var(--bg); }
+  header { padding:18px 20px 8px; max-width:1200px; margin:auto; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:13px; }
+  main { max-width:1200px; margin:auto; padding:8px 20px 30px; display:grid; gap:16px; grid-template-columns: 1fr 360px; }
+  #map { height:620px; border-radius:10px; border:1px solid var(--line); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .card h2 { font-size:14px; margin:0 0 10px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:5px 4px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  .rag { display:inline-block; padding:1px 7px; border-radius:4px; color:#fff; font-weight:600; font-size:11px; }
+  .RED { background:var(--red); } .AMBER { background:var(--amber); } .GREEN { background:var(--green); }
+  .downloads a { display:block; padding:7px 0; color:#1f5fbf; text-decoration:none; border-bottom:1px solid var(--line); }
+  .wide { grid-column: 1 / -1; }
+  .previews { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .previews img { width:100%; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  .note { color:var(--muted); font-size:12px; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; padding:8px 16px; } #map { height:420px; }
+    .previews { grid-template-columns:1fr; } header { padding:16px 16px 6px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Weald demo: 132 kV UGC, Point A to Point B</h1>
+  <div class="sub">Illustrative 132 kV underground cable corridor study, Tonbridge area, Kent. Built 2026-11-09 14:03 UTC from live public data. Coordinates in outputs: British National Grid (EPSG:27700).</div>
+</header>
+<main>
+  <div id="map"></div>
+  <div style="display:grid; gap:16px; align-content:start">
+    <div class="card"><h2>Ranked corridors</h2><table><thead><tr><th>#</th><th>Length</th><th>Crossings</th><th>RED</th><th>AMBER</th><th>RAG</th></tr></thead><tbody><tr><td>1 (rec.)</td><td>13.83 km</td><td>20</td><td>6</td><td>26</td><td><span class="rag RED">RED</span></td></tr><tr><td>2</td><td>14.00 km</td><td>18</td><td>6</td><td>17</td><td><span class="rag RED">RED</span></td></tr><tr><td>3</td><td>12.99 km</td><td>28</td><td>5</td><td>26</td><td><span class="rag RED">RED</span></td></tr></tbody></table></div>
+    <div class="card downloads"><h2>Outputs</h2>
+      <a href="routes.dxf" download>routes.dxf: AutoCAD drawing (BNG, layered)</a>
+      <a href="rag-report.xlsx" download>rag-report.xlsx: RAG risk &amp; crossings report</a>
+      <a href="rag-report.pdf" target="_blank">rag-report.pdf: report for issue</a>
+      <a href="summary.json" target="_blank">summary.json</a>
+    </div>
+    <div class="card"><h2>Data layers</h2><table><thead><tr><th>Layer</th><th>Status</th><th>Features</th></tr></thead><tbody><tr><td>sssi</td><td>ok</td><td>4</td></tr><tr><td>ancient_woodland</td><td>ok</td><td>378</td></tr><tr><td>flood_zone_3</td><td>ok</td><td>4176</td></tr><tr><td>buildings</td><td>ok</td><td>9231</td></tr><tr><td>roads</td><td>ok</td><td>1967</td></tr><tr><td>railways</td><td>ok</td><td>174</td></tr><tr><td>waterways</td><td>ok</td><td>466</td></tr><tr><td>power_lines</td><td>ok</td><td>94</td></tr></tbody></table></div>
+  </div>
+  <div class="card wide"><h2>Crossings on the recommended route</h2><table><thead><tr><th>Ref</th><th>Chainage</th><th>Type</th><th>Class</th><th>Name / ref</th><th>Angle</th><th>RAG</th><th>Reason</th></tr></thead><tbody><tr><td>X01</td><td>1+328</td><td>Watercourse</td><td>river</td><td>River Medway</td><td>51&deg;</td><td><span class="rag AMBER">AMBER</span></td><td>Watercourse: river; oblique crossing (51 deg)</td></tr><tr><td>X02</td><td>2+881</td><td>Road</td><td>tertiary</td><td></td><td>87&deg;</td><td><span class="rag GREEN">GREEN</span></td><td>Road: tertiary</td></tr><tr><td>X03</td><td>3+616</td><td>Railway</td><td>rail</td><td>Redhill to Tonbridge Line</td><td>84&deg;</td><td><span class="rag RED">RED</span></td><td>Railway: rail</td></tr><tr><td>X04</td><td>4+361</td><td>Road</td><td>unclassified</td><td></td><td>71&deg;</td><td><span class="rag GREEN">GREEN</span></td><td>Road: unclassified</td></tr><tr><td>X05</td><td>5+043</td><td>Road</td><td>trunk</td><td>A21</td><td>76&deg;</td><td><span class="rag RED">RED</span></td><td>Road: trunk; parallel features over 13 m (e.g. dual carriageway)</td></tr><tr><td>X06</td><td>5+346</td><td>Watercourse</td><td>stream</td><td></td><td>78&deg;</td><td><span class="rag GREEN">GREEN</span></td><td>Watercourse: stream</td></tr><tr><td>X07</td><td>6+503</td><td>Railway</td><td>rail</td><td>South Eastern Main Line</td><td>81&deg;</td><td><span class="rag RED">RED</span></td><td>Railway: rail</td></tr><tr><td>X08</td><td>6+859</td><td>Road</td><td>residential</td><td></td><td>89&deg;</td><td><span class="rag GREEN">GREEN</span></td><td>Road: residential</td></tr><tr><td>X09</td><td>7+260</td><td>Road</td><td>secondary</td><td>B245</td><td>78&deg;</td><td><span class="rag AMBER">AMBER</span></td><td>Road: secondary</td></tr><tr><td>X10</td><td>8+464</td><td>Watercourse</td><td>stream</td><td>Hilden Brook</td><td>47&deg;</td><td><span class="rag AMBER">AMBER</span></td><td>Watercourse: stream; oblique crossing (47 deg)</td></tr><tr><td>X11</td><td>8+983</td><td>Road</td><td>residential</td><td></td><td>81&deg;</td><td><span class="rag GREEN">GREEN</span></td><td>Road: residential</td></tr><tr><td>X12</td><td>9+194</td><td>Road</td><td>residential</td><td></td><td>87&deg;</td><td><span class="rag GREEN">GREEN</span></td><td>Road: residential</td></tr><tr><td>X13</td><td>9+472</td><td>Road</td><td>primary</td><td>A227</td><td>82&deg;</td><td><span class="rag AMBER">AMBER</span></td><td>Road: primary</td></tr><tr><td>X14</td><td>10+024</td><td>Watercourse</td><td>stream</td><td>Pen Stream</td><td>72&deg;</td><td><span class="rag GREEN">GREEN</span></td><td>Watercourse: stream</td></tr><tr><td>X15</td><td>10+277</td><td>Road</td><td>residential</td><td></td><td>60&deg;</td><td><span class="rag AMBER">AMBER</span></td><td>Road: residential; oblique crossing (60 deg)</td></tr><tr><td>X16</td><td>10+687</td><td>Road</td><td>residential</td><td></td><td>67&deg;</td><td><span class="rag GREEN">GREEN</span></td><td>Road: residential</td></tr><tr><td>X17</td><td>11+483</td><td>Road</td><td>unclassified</td><td></td><td>79&deg;</td><td><span class="rag GREEN">GREEN</span></td><td>Road: unclassified</td></tr><tr><td>X18</td><td>12+931</td><td>Road</td><td>trunk</td><td>A26</td><td>81&deg;</td><td><span class="rag RED">RED</span></td><td>Road: trunk</td></tr><tr><td>X19</td><td>13+256</td><td>Power line</td><td>line</td><td></td><td>65&deg;</td><td><span class="rag AMBER">AMBER</span></td><td>Power line: line</td></tr><tr><td>X20</td><td>13+573</td><td>Road</td><td>unclassified</td><td></td><td>68&deg;</td><td><span class="rag GREEN">GREEN</span></td><td>Road: unclassified</td></tr></tbody></table></div>
+  <div class="card wide"><h2>What the CAD team receives</h2>
+    <div class="previews"><figure><img src="dxf-preview.png" alt="Rendering of routes.dxf"><figcaption class="note">routes.dxf rendered directly (not the GIS data)</figcaption></figure>
+    <figure><img src="overview.png" alt="Overview map"><figcaption class="note">Overview map used in the PDF report</figcaption></figure></div>
+    <p class="note">Illustrative study: Points A and B are hypothetical. Desk-based screening only. Buried services are not in open data, so a utility search is still required. Contains Natural England data © Natural England copyright and database right © Environment Agency copyright and/or database right. All rights reserved. © OpenStreetMap contributors, ODbL © OpenStreetMap contributors, ODbL (production: OS / EA main rivers) © OpenStreetMap contributors, ODbL (production: OS MasterMap Highways) © OpenStreetMap contributors, ODbL (production: OS MasterMap Topography)</p>
+  </div>
+</main>
+<script>
+const colors = ["#d62728","#1f77b4","#ff7f0e","#9467bd"];
+const ragColor = {RED:"#d64545", AMBER:"#f0a030", GREEN:"#3a9d5d"};
+const map = L.map("map");
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19,
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
+const overlays = {};
+async function add(file, name, style, extra) {
+  try {
+    const r = await fetch(file); if (!r.ok) return null;
+    const layer = L.geoJSON(await r.json(), Object.assign({style}, extra || {})).addTo(map);
+    overlays[name] = layer; return layer;
+  } catch (e) { return null; }
+}
+(async () => {
+  await add("flood_zone_3.geojson", "Flood Zone 3", {color:"#4a90d9", weight:0, fillOpacity:0.3});
+  await add("ancient_woodland.geojson", "Ancient woodland", {color:"#2e6b3a", weight:1, fillOpacity:0.55});
+  await add("sssi.geojson", "SSSI", {color:"#5aa05a", weight:1, fillOpacity:0.45});
+  const routes = await add("routes.geojson", "Routes", f => ({color: colors[(f.properties.rank-1)%4],
+      weight: f.properties.rank === 1 ? 5 : 3, dashArray: f.properties.rank === 1 ? null : "6 6"}),
+    {onEachFeature: (f, l) => l.bindPopup(`Route ${f.properties.rank}: ${(f.properties.length_m/1000).toFixed(2)} km, ${f.properties.crossings} crossings, ${f.properties.rag}`)});
+  await add("crossings.geojson", "Crossings", null, {pointToLayer: (f, ll) => L.circleMarker(ll, {radius:6,
+      color:"#222", weight:1, fillColor: ragColor[f.properties.rag], fillOpacity:1}),
+    onEachFeature: (f, l) => l.bindPopup(`<b>${f.properties.ref}</b> ${f.properties.type} (${f.properties.cls}) ${f.properties.name || ""}<br>CH ${f.properties.chainage}, angle ${f.properties.angle}&deg;<br>${f.properties.rag}: ${f.properties.reason}`)});
+  if (routes) map.fitBounds(routes.getBounds().pad(0.15)); else map.setView([51.2, 0.27], 12);
+  L.control.layers(null, overlays, {collapsed:false}).addTo(map);
+})();
+</script>
+</body>
+</html>

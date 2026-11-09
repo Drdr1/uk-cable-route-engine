@@ -1,0 +1,72 @@
+{
+  "project": "Weald demo: 132 kV UGC, Point A to Point B",
+  "routes": [
+    {
+      "rank": 1,
+      "length_m": 13833,
+      "cost": 118841,
+      "crossings": 20,
+      "red": 6,
+      "amber": 26,
+      "rag": "RED"
+    },
+    {
+      "rank": 2,
+      "length_m": 13996,
+      "cost": 130032,
+      "crossings": 18,
+      "red": 6,
+      "amber": 17,
+      "rag": "RED"
+    },
+    {
+      "rank": 3,
+      "length_m": 12991,
+      "cost": 130213,
+      "crossings": 28,
+      "red": 5,
+      "amber": 26,
+      "rag": "RED"
+    }
+  ],
+  "layers": {
+    "sssi": {
+      "status": "ok",
+      "features": 4
+    },
+    "ancient_woodland": {
+      "status": "ok",
+      "features": 378
+    },
+    "flood_zone_3": {
+      "status": "ok",
+      "features": 4176
+    },
+    "buildings": {
+      "status": "ok",
+      "features": 9231
+    },
+    "roads": {
+      "status": "ok",
+      "features": 1967
+    },
+    "railways": {
+      "status": "ok",
+      "features": 174
+    },
+    "waterways": {
+      "status": "ok",
+      "features": 466
+    },
+    "power_lines": {
+      "status": "ok",
+      "features": 94
+    }
+  },
+  "outputs": [
+    "routes.dxf",
+    "rag-report.xlsx",
+    "rag-report.pdf",
+    "overview.png"
+  ]
+}
